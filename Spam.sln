@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.33502.453
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Spam", "Spam\Spam.csproj", "{148E96AD-8BB5-43EA-8B49-BD5DDAACEE9B}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{9E762E2C-7C1B-4FC4-9595-0D3AE5DB6187}"
+	ProjectSection(SolutionItems) = preProject
+		.gitattributes = .gitattributes
+		.gitignore = .gitignore
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{148E96AD-8BB5-43EA-8B49-BD5DDAACEE9B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{148E96AD-8BB5-43EA-8B49-BD5DDAACEE9B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{148E96AD-8BB5-43EA-8B49-BD5DDAACEE9B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{148E96AD-8BB5-43EA-8B49-BD5DDAACEE9B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {EC212F5C-9C16-4787-84CB-D2F909683A7F}
+	EndGlobalSection
+EndGlobal
