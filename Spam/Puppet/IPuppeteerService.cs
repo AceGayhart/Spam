@@ -1,4 +1,4 @@
-﻿namespace Spam;
+﻿namespace Spam.Puppet;
 
 public interface IPuppeteerService
 {

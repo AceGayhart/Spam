@@ -2,7 +2,7 @@
 using Serilog;
 using System.Text;
 
-namespace Spam;
+namespace Spam.Logging;
 
 public class SerilogProtocolLogger : IProtocolLogger
 {

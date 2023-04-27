@@ -1,7 +1,7 @@
 ﻿using Microsoft.Extensions.Configuration;
 using Serilog;
 
-namespace Spam;
+namespace Spam.Configuration;
 
 public class ConfigurationService : IConfigurationService
 {

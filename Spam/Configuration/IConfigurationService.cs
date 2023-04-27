@@ -1,6 +1,6 @@
 ﻿using Microsoft.Extensions.Configuration;
 
-namespace Spam;
+namespace Spam.Configuration;
 
 public interface IConfigurationService
 {

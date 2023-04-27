@@ -1,4 +1,4 @@
-﻿namespace Spam;
+﻿namespace Spam.Configuration;
 
 public class MailServerSettings
 {

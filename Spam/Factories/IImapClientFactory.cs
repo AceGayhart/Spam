@@ -1,6 +1,7 @@
 ﻿using MailKit.Net.Imap;
+using Spam.Configuration;
 
-namespace Spam;
+namespace Spam.Factories;
 
 public interface IImapClientFactory
 {

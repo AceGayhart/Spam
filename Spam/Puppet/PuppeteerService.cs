@@ -2,7 +2,7 @@
 using Serilog;
 using System.Text.RegularExpressions;
 
-namespace Spam;
+namespace Spam.Puppet;
 
 public partial class PuppeteerService : IPuppeteerService
 {
@@ -10,7 +10,11 @@ public partial class PuppeteerService : IPuppeteerService
     {
         // Set up PuppeteerSharp
         await new BrowserFetcher().DownloadAsync(BrowserFetcher.DefaultChromiumRevision);
-        var options = new LaunchOptions { Headless = true };
+        var options = new LaunchOptions
+        {
+            Headless = true,
+            Timeout = 60 * 1000
+        };
         using var browser = await Puppeteer.LaunchAsync(options);
 
         // Load the HTML content into a new page

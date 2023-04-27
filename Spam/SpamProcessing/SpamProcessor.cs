@@ -2,9 +2,13 @@
 using MailKit.Search;
 using MimeKit;
 using Serilog;
+using Spam.Configuration;
+using Spam.Factories;
+using Spam.Metrics;
+using Spam.Puppet;
 using System.Text.RegularExpressions;
 
-namespace Spam;
+namespace Spam.SpamProcessing;
 
 public partial class SpamProcessor : ISpamProcessor
 {
@@ -14,7 +18,8 @@ public partial class SpamProcessor : ISpamProcessor
             IMailFolder spamFolder,
             IMailFolder trashFolder,
             Settings settings,
-            ISmtpClientFactory smtpClientFactory)
+            ISmtpClientFactory smtpClientFactory,
+            IMetricsService metricsService)
     {
         Log.Information("Checking for new spam");
         await spamFolder.OpenAsync(FolderAccess.ReadWrite);
@@ -30,6 +35,7 @@ public partial class SpamProcessor : ISpamProcessor
         }
 
         Log.Information("Found new spam emails: {count}", messageIds.Count);
+        metricsService.IncrementSpamEmailsRecieved(messageIds.Count);
 
         List<MimeMessage> messages = new();
 
@@ -49,11 +55,17 @@ public partial class SpamProcessor : ISpamProcessor
         using (var client = smtpClientFactory.CreateSmtpClient(settings))
         {
             client.Send(spamCopSubmission);
+            metricsService.IncrementSpamCopSubmissionsSent();
             client.Disconnect(true);
         };
     }
 
-    public async Task ProcessSpamCopResponses(IMailFolder inboxFolder, IMailFolder trashFolder, Settings settings, IPuppeteerService puppeteerService)
+    public async Task ProcessSpamCopResponses(
+            IMailFolder inboxFolder,
+            IMailFolder trashFolder,
+            Settings settings,
+            IPuppeteerService puppeteerService,
+            IMetricsService metricsService)
     {
         Log.Information("Checking for SpamCop responses");
         await inboxFolder.OpenAsync(FolderAccess.ReadWrite);
@@ -70,6 +82,7 @@ public partial class SpamProcessor : ISpamProcessor
         }
 
         Log.Information("Found new SpamCop emails: {count}", messageIds.Count);
+        metricsService.IncrementSpamCopResponsesRecieved();
 
         List<MimeMessage> messages = new();
 
@@ -83,11 +96,21 @@ public partial class SpamProcessor : ISpamProcessor
             {
                 Log.Debug("Processing link: {link}", link);
 
-                var postResult = await puppeteerService.ProcessHtmlAndSendPostRequest(link);
-
-                foreach (var post in postResult)
+                try
                 {
-                    Log.Debug(post);
+                    var postResult = await puppeteerService.ProcessHtmlAndSendPostRequest(link);
+
+                    foreach (var post in postResult)
+                    {
+                        Log.Debug(post);
+                    }
+
+                    metricsService.IncrementSpamCopReportsSent();
+                }
+                catch (Exception ex)
+                {
+                    metricsService.IncrementSpamCopReportFailures();
+                    Log.Fatal(ex, "Failed to send SpamCop report");
                 }
             }
 
