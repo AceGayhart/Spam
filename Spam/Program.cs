@@ -33,6 +33,8 @@ using (var client = imapClientFactory.CreateImapClient(settings))
     var inboxFolder = client.GetFolder("Inbox");
     var spamFolder = client.GetFolder(SpecialFolder.Junk);
 
+    metricsService.SendReportEmails(settings, smtpClientFactory);
+
     await spamProcessor.ProcessNewSpamMesssages(spamFolder, trashFolder, settings, smtpClientFactory, metricsService);
     await spamProcessor.ProcessSpamCopResponses(inboxFolder, trashFolder, settings, puppeteerService, metricsService);
 

@@ -1,8 +1,13 @@
-﻿namespace Spam.Metrics;
+﻿using Spam.Configuration;
+using Spam.Factories;
+
+namespace Spam.Metrics;
 
 public interface IMetricsService
 {
     DateTime GetLastRunDateTime();
+
+    IEnumerable<MetricEntry> GetMetrics(DateTime startDate, DateTime endDate);
 
     void IncrementSpamCopReportFailures(int count = 1);
 
@@ -17,4 +22,6 @@ public interface IMetricsService
     ProcessingMetrics LoadMetrics();
 
     void SaveMetrics();
+
+    void SendReportEmails(Settings settings, ISmtpClientFactory smtpClientFactory);
 }
