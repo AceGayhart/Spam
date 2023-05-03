@@ -39,6 +39,12 @@ public class ConfigurationService : IConfigurationService
 
         foreach (var property in properties)
         {
+            // Skip indexer properties
+            if (property.GetIndexParameters().Length > 0)
+            {
+                continue;
+            }
+
             var value = property.GetValue(obj);
             var propertyType = property.PropertyType;
 

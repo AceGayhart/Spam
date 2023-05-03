@@ -15,7 +15,7 @@ public partial class SpamProcessor : ISpamProcessor
     private static readonly ILogger Log = Serilog.Log.ForContext<SpamProcessor>();
 
     public async Task ProcessNewSpamMesssages(
-            IMailFolder spamFolder,
+                IMailFolder spamFolder,
             IMailFolder trashFolder,
             Settings settings,
             ISmtpClientFactory smtpClientFactory,
@@ -35,13 +35,22 @@ public partial class SpamProcessor : ISpamProcessor
         }
 
         Log.Information("Found new spam emails: {count}", messageIds.Count);
-        metricsService.IncrementSpamEmailsRecieved(messageIds.Count);
 
         List<MimeMessage> messages = new();
 
         foreach (var uid in messageIds)
         {
-            messages.Add(spamFolder.GetMessage(uid));
+            var message = spamFolder.GetMessage(uid);
+
+            if (IsSenderAllowed(message.From, settings.AllowedSenders))
+            {
+                Log.Information("Skipping email from {from}: {subject}", message.From.FirstOrDefault(), message.Subject);
+                spamFolder.RemoveFlags(uid, MessageFlags.Seen, true);
+                continue;
+            }
+
+            messages.Add(message);
+            metricsService.IncrementSpamEmailsRecieved();
 
             spamFolder.AddFlags(uid, MessageFlags.Seen, true);
             spamFolder.MoveTo(uid, trashFolder);
@@ -61,11 +70,11 @@ public partial class SpamProcessor : ISpamProcessor
     }
 
     public async Task ProcessSpamCopResponses(
-            IMailFolder inboxFolder,
-            IMailFolder trashFolder,
-            Settings settings,
-            IPuppeteerService puppeteerService,
-            IMetricsService metricsService)
+                IMailFolder inboxFolder,
+                IMailFolder trashFolder,
+                Settings settings,
+                IPuppeteerService puppeteerService,
+                IMetricsService metricsService)
     {
         Log.Information("Checking for SpamCop responses");
         await inboxFolder.OpenAsync(FolderAccess.ReadWrite);
@@ -156,6 +165,20 @@ public partial class SpamProcessor : ISpamProcessor
 
         submission.Body = multipart;
         return submission;
+    }
+
+    private static bool IsSenderAllowed(InternetAddressList senderList, List<string>? allowedSenders)
+    {
+        if (senderList == null || allowedSenders == null || allowedSenders.Count == 0)
+        {
+            return true;
+        }
+
+        return senderList.OfType<MailboxAddress>()
+            .Any(mailbox =>
+                allowedSenders.Any(allowed =>
+                    allowed.Equals(mailbox.Address, StringComparison.OrdinalIgnoreCase) ||
+                    allowed.Equals(mailbox.Domain, StringComparison.OrdinalIgnoreCase)));
     }
 
     [GeneratedRegex("https?://\\S+")]
