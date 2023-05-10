@@ -13,13 +13,23 @@ namespace Spam.SpamProcessing;
 public partial class SpamProcessor : ISpamProcessor
 {
     private static readonly ILogger Log = Serilog.Log.ForContext<SpamProcessor>();
+    private readonly IMetricsService _metricsService;
+    private readonly IPuppeteerService _puppeteerService;
+    private readonly Settings _settings;
+    private readonly ISmtpClientFactory _smtpClientFactory;
 
-    public async Task ProcessNewSpamMesssages(
-                IMailFolder spamFolder,
-            IMailFolder trashFolder,
-            Settings settings,
-            ISmtpClientFactory smtpClientFactory,
-            IMetricsService metricsService)
+    public SpamProcessor(Settings settings,
+        ISmtpClientFactory smtpClientFactory,
+        IMetricsService metricsService,
+        IPuppeteerService puppeteerService)
+    {
+        _settings = settings;
+        _smtpClientFactory = smtpClientFactory;
+        _metricsService = metricsService;
+        _puppeteerService = puppeteerService;
+    }
+
+    public async Task ProcessNewSpamMesssages(IMailFolder spamFolder, IMailFolder trashFolder)
     {
         Log.Information("Checking for new spam");
         await spamFolder.OpenAsync(FolderAccess.ReadWrite);
@@ -42,7 +52,7 @@ public partial class SpamProcessor : ISpamProcessor
         {
             var message = spamFolder.GetMessage(uid);
 
-            if (IsSenderAllowed(message.From, settings.AllowedSenders))
+            if (IsSenderAllowed(message.From, _settings.AllowedSenders))
             {
                 Log.Information("Skipping email from {from}: {subject}", message.From.FirstOrDefault(), message.Subject);
                 spamFolder.RemoveFlags(uid, MessageFlags.Seen, true);
@@ -50,37 +60,32 @@ public partial class SpamProcessor : ISpamProcessor
             }
 
             messages.Add(message);
-            metricsService.IncrementSpamEmailsRecieved();
+            _metricsService.IncrementSpamEmailsRecieved();
 
             spamFolder.AddFlags(uid, MessageFlags.Seen, true);
             spamFolder.MoveTo(uid, trashFolder);
         }
 
-        MailboxAddress fromAddress = new(settings.MailServer.DisplayName, settings.MailServer.EmailAddress);
-        MailboxAddress toAddress = new(settings.SpamCop.ReportDisplayName, settings.SpamCop.ReportEmailAddress);
+        MailboxAddress fromAddress = new(_settings.MailServer.DisplayName, _settings.MailServer.EmailAddress);
+        MailboxAddress toAddress = new(_settings.SpamCop.ReportDisplayName, _settings.SpamCop.ReportEmailAddress);
 
         var spamCopSubmission = GenerateSpamCopSubmission(messages, fromAddress, toAddress);
 
-        using (var client = smtpClientFactory.CreateSmtpClient(settings))
+        using (var client = _smtpClientFactory.CreateSmtpClient())
         {
             client.Send(spamCopSubmission);
-            metricsService.IncrementSpamCopSubmissionsSent();
+            _metricsService.IncrementSpamCopSubmissionsSent();
             client.Disconnect(true);
         };
     }
 
-    public async Task ProcessSpamCopResponses(
-                IMailFolder inboxFolder,
-                IMailFolder trashFolder,
-                Settings settings,
-                IPuppeteerService puppeteerService,
-                IMetricsService metricsService)
+    public async Task ProcessSpamCopResponses(IMailFolder inboxFolder, IMailFolder trashFolder)
     {
         Log.Information("Checking for SpamCop responses");
         await inboxFolder.OpenAsync(FolderAccess.ReadWrite);
 
-        var query = SearchQuery.FromContains(settings.SpamCop.ResponseEmailAddress)
-            .And(SearchQuery.SubjectContains(settings.SpamCop.ResponseSubject));
+        var query = SearchQuery.FromContains(_settings.SpamCop.ResponseEmailAddress)
+            .And(SearchQuery.SubjectContains(_settings.SpamCop.ResponseSubject));
 
         var messageIds = await inboxFolder.SearchAsync(query);
 
@@ -91,7 +96,7 @@ public partial class SpamProcessor : ISpamProcessor
         }
 
         Log.Information("Found new SpamCop emails: {count}", messageIds.Count);
-        metricsService.IncrementSpamCopResponsesRecieved();
+        _metricsService.IncrementSpamCopResponsesRecieved();
 
         List<MimeMessage> messages = new();
 
@@ -100,25 +105,25 @@ public partial class SpamProcessor : ISpamProcessor
             messages.Add(inboxFolder.GetMessage(uid));
             var msg = inboxFolder.GetMessage(uid);
 
-            var links = ExtractLinks(msg.TextBody, settings.SpamCop.ReportUrl);
+            var links = ExtractLinks(msg.TextBody, _settings.SpamCop.ReportUrl);
             foreach (var link in links)
             {
                 Log.Debug("Processing link: {link}", link);
 
                 try
                 {
-                    var postResult = await puppeteerService.ProcessHtmlAndSendPostRequest(link);
+                    var postResult = await _puppeteerService.ProcessHtmlAndSendPostRequest(link);
 
                     foreach (var post in postResult)
                     {
                         Log.Debug(post);
                     }
 
-                    metricsService.IncrementSpamCopReportsSent();
+                    _metricsService.IncrementSpamCopReportsSent();
                 }
                 catch (Exception ex)
                 {
-                    metricsService.IncrementSpamCopReportFailures();
+                    _metricsService.IncrementSpamCopReportFailures();
                     Log.Fatal(ex, "Failed to send SpamCop report");
                 }
             }

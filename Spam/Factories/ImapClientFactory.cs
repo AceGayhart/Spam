@@ -6,14 +6,21 @@ namespace Spam.Factories;
 
 public class ImapClientFactory : IImapClientFactory
 {
-    public ImapClient CreateImapClient(Settings settings)
+    private readonly Settings _settings;
+
+    public ImapClientFactory(Settings settings)
+    {
+        _settings = settings;
+    }
+
+    public ImapClient CreateImapClient()
     {
         var client = new ImapClient(new SerilogProtocolLogger());
         client.Connect(
-            settings.MailServer.Imap.Host,
-            settings.MailServer.Imap.Port,
+            _settings.MailServer.Imap.Host,
+            _settings.MailServer.Imap.Port,
             MailKit.Security.SecureSocketOptions.SslOnConnect);
-        client.Authenticate(settings.MailServer.Username, settings.MailServer.Password);
+        client.Authenticate(_settings.MailServer.Username, _settings.MailServer.Password);
         return client;
     }
 }

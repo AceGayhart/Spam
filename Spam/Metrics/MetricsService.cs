@@ -8,14 +8,18 @@ namespace Spam.Metrics;
 
 public class MetricsService : IMetricsService
 {
-    private const string MetricsFilePath = "email_metrics.json";
-
     private readonly ProcessingMetrics _metrics;
-
+    private readonly string _metricsFilePath;
+    private readonly Settings _settings;
+    private readonly ISmtpClientFactory _smtpClientFactory;
     private MetricEntry? _currentMetricEntry;
 
-    public MetricsService()
+    public MetricsService(Settings settings, ISmtpClientFactory smtpClientFactory)
     {
+        _settings = settings;
+        _metricsFilePath = _settings.Metrics.FileStore;
+        _smtpClientFactory = smtpClientFactory;
+
         _metrics = LoadMetrics();
     }
 
@@ -56,11 +60,12 @@ public class MetricsService : IMetricsService
 
     public ProcessingMetrics LoadMetrics()
     {
-        if (File.Exists(MetricsFilePath))
+        if (File.Exists(_metricsFilePath))
         {
-            var jsonString = File.ReadAllText(MetricsFilePath);
+            var jsonString = File.ReadAllText(_metricsFilePath);
             return JsonSerializer.Deserialize<ProcessingMetrics>(jsonString) ?? new ProcessingMetrics();
         }
+
         return new ProcessingMetrics();
     }
 
@@ -78,25 +83,34 @@ public class MetricsService : IMetricsService
         }
 
         var jsonString = JsonSerializer.Serialize(_metrics);
-        File.WriteAllText(MetricsFilePath, jsonString);
+        File.WriteAllText(_metricsFilePath, jsonString);
     }
 
-    public void SendReportEmails(Settings settings, ISmtpClientFactory smtpClientFactory)
+    public void SendReportEmails()
     {
+        if (!_settings.Metrics.SendDailyMetricsReport && !_settings.Metrics.SendMonthlyMetricsReport)
+        {
+            return;
+        }
+
         var reportDate = DateTime.Today.AddDays(-1);
 
         // Check for daily report
         if (DateTime.Now.Date != GetLastRunDateTime().ToLocalTime().Date)
         {
-            var email = GenerateDailyReportEmail(settings, reportDate);
+            using var smtpClient = _smtpClientFactory.CreateSmtpClient();
+            if (_settings.Metrics.SendDailyMetricsReport)
+            {
+                var email = GenerateDailyReportEmail(reportDate);
 
-            using var smtpClient = smtpClientFactory.CreateSmtpClient(settings);
-            smtpClient.Send(email);
+                smtpClient.Send(email);
+            }
 
             // Check for montly report
-            if (DateTime.Now.Month != GetLastRunDateTime().ToLocalTime().Month)
+            if (DateTime.Now.Month != GetLastRunDateTime().ToLocalTime().Month
+                && _settings.Metrics.SendMonthlyMetricsReport)
             {
-                email = GenerateMonthlyReportEmail(settings, reportDate);
+                var email = GenerateMonthlyReportEmail(reportDate);
                 smtpClient.Send(email);
             }
 
@@ -190,7 +204,7 @@ public class MetricsService : IMetricsService
         return sb.ToString();
     }
 
-    private MimeMessage GenerateDailyReportEmail(Settings settings, DateTime reportDate)
+    private MimeMessage GenerateDailyReportEmail(DateTime reportDate)
     {
         var startDate = reportDate.Date.ToUniversalTime();
         var endDate = startDate.AddDays(1);
@@ -199,7 +213,7 @@ public class MetricsService : IMetricsService
 
         var htmlReport = GenerateReport(summaryMetrics, false);
 
-        MailboxAddress address = new(settings.MailServer.DisplayName, settings.MailServer.EmailAddress);
+        MailboxAddress address = new(_settings.MailServer.DisplayName, _settings.MailServer.EmailAddress);
 
         var email = new MimeMessage();
         email.From.Add(address);
@@ -212,7 +226,7 @@ public class MetricsService : IMetricsService
         return email;
     }
 
-    private MimeMessage GenerateMonthlyReportEmail(Settings settings, DateTime reportDate)
+    private MimeMessage GenerateMonthlyReportEmail(DateTime reportDate)
     {
         var startDate = reportDate.ToUniversalTime();
         startDate = new DateTime(startDate.Year, startDate.Month, 1).ToUniversalTime();
@@ -222,7 +236,7 @@ public class MetricsService : IMetricsService
 
         var htmlReport = GenerateReport(summaryMetrics, true);
 
-        MailboxAddress address = new(settings.MailServer.DisplayName, settings.MailServer.EmailAddress);
+        MailboxAddress address = new(_settings.MailServer.DisplayName, _settings.MailServer.EmailAddress);
 
         var email = new MimeMessage();
         email.From.Add(address);
