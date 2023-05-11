@@ -6,37 +6,37 @@ using Spam.Metrics;
 using Spam.Puppet;
 using Spam.SpamProcessing;
 
-var serviceProvider = new ServiceCollection()
+var serviceCollection = new ServiceCollection()
     .AddSingleton<IConfigurationService, ConfigurationService>()
     .AddSingleton<ISpamProcessor, SpamProcessor>()
     .AddSingleton<IImapClientFactory, ImapClientFactory>()
     .AddSingleton<ISmtpClientFactory, SmtpClientFactory>()
     .AddSingleton<IPuppeteerService, PuppeteerService>()
     .AddSingleton<IMetricsService, MetricsService>()
-    .BuildServiceProvider();
+    .AddSingleton(provider =>
+    {
+        var configService = provider.GetRequiredService<IConfigurationService>();
+        configService.ConfigureLogger();
+        return configService.GetSettings();
+    });
 
-// Get configuration and settings
-var configurationService = serviceProvider.GetRequiredService<IConfigurationService>();
-configurationService.ConfigureLogger();
-var settings = configurationService.GetSettings();
+using var serviceProvider = serviceCollection.BuildServiceProvider();
 
 // Get the services
 var spamProcessor = serviceProvider.GetRequiredService<ISpamProcessor>();
 var imapClientFactory = serviceProvider.GetRequiredService<IImapClientFactory>();
-var smtpClientFactory = serviceProvider.GetRequiredService<ISmtpClientFactory>();
-var puppeteerService = serviceProvider.GetRequiredService<IPuppeteerService>();
 var metricsService = serviceProvider.GetRequiredService<IMetricsService>();
 
-using (var client = imapClientFactory.CreateImapClient(settings))
+using (var client = imapClientFactory.CreateImapClient())
 {
     var trashFolder = client.GetFolder(SpecialFolder.Trash);
     var inboxFolder = client.GetFolder("Inbox");
     var spamFolder = client.GetFolder(SpecialFolder.Junk);
 
-    metricsService.SendReportEmails(settings, smtpClientFactory);
+    metricsService.SendReportEmails();
 
-    await spamProcessor.ProcessNewSpamMesssages(spamFolder, trashFolder, settings, smtpClientFactory, metricsService);
-    await spamProcessor.ProcessSpamCopResponses(inboxFolder, trashFolder, settings, puppeteerService, metricsService);
+    await spamProcessor.ProcessNewSpamMesssages(spamFolder, trashFolder);
+    await spamProcessor.ProcessSpamCopResponses(inboxFolder, trashFolder);
 
     client.Disconnect(true);
 }

@@ -6,11 +6,18 @@ namespace Spam.Factories;
 
 public class SmtpClientFactory : ISmtpClientFactory
 {
-    public SmtpClient CreateSmtpClient(Settings settings)
+    private readonly Settings _settings;
+
+    public SmtpClientFactory(Settings settings)
+    {
+        _settings = settings;
+    }
+
+    public SmtpClient CreateSmtpClient()
     {
         var client = new SmtpClient(new SerilogProtocolLogger());
-        client.Connect(settings.MailServer.Smtp.Host, settings.MailServer.Smtp.Port);
-        client.Authenticate(settings.MailServer.Username, settings.MailServer.Password);
+        client.Connect(_settings.MailServer.Smtp.Host, _settings.MailServer.Smtp.Port);
+        client.Authenticate(_settings.MailServer.Username, _settings.MailServer.Password);
         return client;
     }
 }

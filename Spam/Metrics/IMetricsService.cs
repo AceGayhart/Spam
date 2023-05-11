@@ -1,7 +1,4 @@
-﻿using Spam.Configuration;
-using Spam.Factories;
-
-namespace Spam.Metrics;
+﻿namespace Spam.Metrics;
 
 public interface IMetricsService
 {
@@ -23,5 +20,5 @@ public interface IMetricsService
 
     void SaveMetrics();
 
-    void SendReportEmails(Settings settings, ISmtpClientFactory smtpClientFactory);
+    void SendReportEmails();
 }
