@@ -48,6 +48,8 @@ public partial class SpamProcessor : ISpamProcessor
 
         List<MimeMessage> messages = new();
 
+        int spamCounter = 0;
+
         foreach (var uid in messageIds)
         {
             var message = spamFolder.GetMessage(uid);
@@ -64,19 +66,20 @@ public partial class SpamProcessor : ISpamProcessor
 
             spamFolder.AddFlags(uid, MessageFlags.Seen, true);
             spamFolder.MoveTo(uid, trashFolder);
+            spamCounter++;
+
+            if (spamCounter >= _settings.SpamCop.MaxAttachmentsPerReport)
+            {
+                SendToSpamCop(messages);
+                spamCounter = 0;
+                messages = new();
+            }
         }
 
-        MailboxAddress fromAddress = new(_settings.MailServer.DisplayName, _settings.MailServer.EmailAddress);
-        MailboxAddress toAddress = new(_settings.SpamCop.ReportDisplayName, _settings.SpamCop.ReportEmailAddress);
-
-        var spamCopSubmission = GenerateSpamCopSubmission(messages, fromAddress, toAddress);
-
-        using (var client = _smtpClientFactory.CreateSmtpClient())
+        if (messages.Count > 0)
         {
-            client.Send(spamCopSubmission);
-            _metricsService.IncrementSpamCopSubmissionsSent();
-            client.Disconnect(true);
-        };
+            SendToSpamCop(messages);
+        }
     }
 
     public async Task ProcessSpamCopResponses(IMailFolder inboxFolder, IMailFolder trashFolder)
@@ -188,4 +191,19 @@ public partial class SpamProcessor : ISpamProcessor
 
     [GeneratedRegex("https?://\\S+")]
     private static partial Regex UrlRegex();
+
+    private void SendToSpamCop(List<MimeMessage> messages)
+    {
+        MailboxAddress fromAddress = new(_settings.MailServer.DisplayName, _settings.MailServer.EmailAddress);
+        MailboxAddress toAddress = new(_settings.SpamCop.ReportDisplayName, _settings.SpamCop.ReportEmailAddress);
+
+        var spamCopSubmission = GenerateSpamCopSubmission(messages, fromAddress, toAddress);
+
+        using (var client = _smtpClientFactory.CreateSmtpClient())
+        {
+            client.Send(spamCopSubmission);
+            _metricsService.IncrementSpamCopSubmissionsSent();
+            client.Disconnect(true);
+        };
+    }
 }
