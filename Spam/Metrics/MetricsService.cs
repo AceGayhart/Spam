@@ -1,4 +1,5 @@
 ﻿using MimeKit;
+using Serilog;
 using Spam.Configuration;
 using Spam.Factories;
 using System.Text;
@@ -74,11 +75,21 @@ public class MetricsService : IMetricsService
         if (_currentMetricEntry == null)
         {
             _metrics.LastRunDate = DateTime.UtcNow;
+            Log.Debug("No processed messages");
         }
         else
         {
             _metrics.LastRunDate = _currentMetricEntry.Timestamp;
             _metrics.Entries.Add(_currentMetricEntry);
+
+            Log.Information("Metrics for this run: Spam Emails Received {SpamEmailsReceived}, SpamCop Submissions Sent {SpamCopSubmissionsSent}, " +
+                       "SpamCop Responses Received {SpamCopResponsesReceived}, SpamCop Reports Sent {SpamCopReportsSent}, SpamCop Report Failures {SpamCopReportFailures}",
+           _currentMetricEntry.SpamEmailsReceived,
+           _currentMetricEntry.SpamCopSubmissionsSent,
+           _currentMetricEntry.SpamCopResponsesReceived,
+           _currentMetricEntry.SpamCopReportsSent,
+           _currentMetricEntry.SpamCopReportFailures);
+
             _currentMetricEntry = null;
         }
 
@@ -101,6 +112,7 @@ public class MetricsService : IMetricsService
             using var smtpClient = _smtpClientFactory.CreateSmtpClient();
             if (_settings.Metrics.SendDailyMetricsReport)
             {
+                Log.Information("Sending daily metrics report");
                 var email = GenerateDailyReportEmail(reportDate);
 
                 smtpClient.Send(email);
@@ -110,6 +122,7 @@ public class MetricsService : IMetricsService
             if (DateTime.Now.Month != GetLastRunDateTime().ToLocalTime().Month
                 && _settings.Metrics.SendMonthlyMetricsReport)
             {
+                Log.Information("Sending monthly metrics report");
                 var email = GenerateMonthlyReportEmail(reportDate);
                 smtpClient.Send(email);
             }
