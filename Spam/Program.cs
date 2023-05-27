@@ -1,6 +1,7 @@
 ﻿using MailKit;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
+using Spam;
 using Spam.Configuration;
 using Spam.Factories;
 using Spam.Metrics;
@@ -31,6 +32,7 @@ serviceCollection
     .AddSingleton<ISmtpClientFactory, SmtpClientFactory>()
     .AddSingleton<IPuppeteerService, PuppeteerService>()
     .AddSingleton<IMetricsService, MetricsService>()
+    .AddSingleton(_ => new CommandLineArgumentsService(args))
     .AddSingleton(provider => configService.GetSettings());
 
 using var serviceProvider = serviceCollection.BuildServiceProvider();
@@ -40,16 +42,25 @@ var spamProcessor = serviceProvider.GetRequiredService<ISpamProcessor>();
 var imapClientFactory = serviceProvider.GetRequiredService<IImapClientFactory>();
 var metricsService = serviceProvider.GetRequiredService<IMetricsService>();
 
+var commandLineArgs = serviceProvider.GetRequiredService<CommandLineArgumentsService>();
+
 using (var client = imapClientFactory.CreateImapClient())
 {
     var trashFolder = client.GetFolder(SpecialFolder.Trash);
     var inboxFolder = client.GetFolder("Inbox");
     var spamFolder = client.GetFolder(SpecialFolder.Junk);
 
-    metricsService.SendReportEmails();
+    metricsService.SendReportEmails(commandLineArgs.ForceDailyReport, commandLineArgs.ForceMonthlyReport);
 
-    await spamProcessor.ProcessNewSpamMesssages(spamFolder, trashFolder);
-    await spamProcessor.ProcessSpamCopResponses(inboxFolder, trashFolder);
+    if (commandLineArgs.ProcessSpam)
+    {
+        await spamProcessor.ProcessNewSpamMesssages(spamFolder, trashFolder);
+    }
+
+    if (commandLineArgs.ProcessResponses)
+    {
+        await spamProcessor.ProcessSpamCopResponses(inboxFolder, trashFolder);
+    }
 
     client.Disconnect(true);
 }

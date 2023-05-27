@@ -97,38 +97,45 @@ public class MetricsService : IMetricsService
         File.WriteAllText(_metricsFilePath, jsonString);
     }
 
-    public void SendReportEmails()
+    public void SendReportEmails(bool forceDailyReport, bool forceMonthlyReport)
     {
-        if (!_settings.Metrics.SendDailyMetricsReport && !_settings.Metrics.SendMonthlyMetricsReport)
+        var now = DateTime.Now;
+        var lastRunDateTimeLocal = GetLastRunDateTime().ToLocalTime();
+        var isDailyReportRequired = forceDailyReport
+            || (_settings.Metrics.SendDailyMetricsReport && now.Date != lastRunDateTimeLocal.Date);
+        var isMonthlyReportRequired = forceMonthlyReport
+            || (_settings.Metrics.SendMonthlyMetricsReport && now.Month != lastRunDateTimeLocal.Month);
+
+        if (!isDailyReportRequired && !isMonthlyReportRequired)
         {
             return;
         }
 
-        var reportDate = DateTime.Today.AddDays(-1);
+        using var smtpClient = _smtpClientFactory.CreateSmtpClient();
 
-        // Check for daily report
-        if (DateTime.Now.Date != GetLastRunDateTime().ToLocalTime().Date)
+        if (isDailyReportRequired)
         {
-            using var smtpClient = _smtpClientFactory.CreateSmtpClient();
-            if (_settings.Metrics.SendDailyMetricsReport)
-            {
-                Log.Information("Sending daily metrics report");
-                var email = GenerateDailyReportEmail(reportDate);
+            var reportDate = DateTime.Today.AddDays(-1);
+            var logMsg = forceDailyReport
+                ? "Forcing daily metrics report for {reportDate:yyyy-MM-dd}"
+                : "Sending daily metrics report for {reportDate:yyyy-MM-dd}";
+            Log.Information(logMsg, reportDate);
 
-                smtpClient.Send(email);
-            }
-
-            // Check for montly report
-            if (DateTime.Now.Month != GetLastRunDateTime().ToLocalTime().Month
-                && _settings.Metrics.SendMonthlyMetricsReport)
-            {
-                Log.Information("Sending monthly metrics report");
-                var email = GenerateMonthlyReportEmail(reportDate);
-                smtpClient.Send(email);
-            }
-
-            smtpClient.Disconnect(true);
+            var email = GenerateDailyReportEmail(reportDate);
+            smtpClient.Send(email);
         }
+
+        if (isMonthlyReportRequired)
+        {
+            var reportDate = DateTime.Today.AddMonths(-1);
+            var logMsg = forceMonthlyReport ? "Forcing monthly metrics report for {reportDate:yyyy-MM}" : "Sending monthly metrics report for {reportDate:yyyy-MM}";
+            Log.Information(logMsg, reportDate);
+
+            var email = GenerateMonthlyReportEmail(reportDate);
+            smtpClient.Send(email);
+        }
+
+        smtpClient.Disconnect(true);
     }
 
     private static string GenerateReport(IEnumerable<MetricEntry> metricEntries, bool summarizeByDate)
