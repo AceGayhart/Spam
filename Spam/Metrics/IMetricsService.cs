@@ -20,5 +20,5 @@ public interface IMetricsService
 
     void SaveMetrics();
 
-    void SendReportEmails();
+    void SendReportEmails(bool forceDailyReport = false, bool forceMonthlyReport = false);
 }

@@ -1,11 +1,10 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net7.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <Version>1.0.1</Version>
   </PropertyGroup>
 
   <ItemGroup>
@@ -40,14 +39,13 @@
     <None Include="C:\Projects\Spam\Spam\.editorconfig" />
   </ItemGroup>
 
-  <Target Name="SetVersion" BeforeTargets="Build">
-    <Exec Command="dotnet gitversion /output buildserver" ConsoleToMSBuild="true">
-      <Output TaskParameter="ConsoleOutput" PropertyName="GitVersionOutput" />
+  <Target Name="UpdateAssemblyVersion" BeforeTargets="BeforeBuild">
+    <Exec Command="dotnet gitversion /output json /showvariable FullSemVer" ConsoleToMSBuild="true" StandardOutputImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="GitVersion_FullSemVer" />
     </Exec>
     <PropertyGroup>
-      <Version>$(GitVersion_NuGetVersionV2)</Version>
+      <Version>$(GitVersion_FullSemVer)</Version>
     </PropertyGroup>
   </Target>
-
 
 </Project>
