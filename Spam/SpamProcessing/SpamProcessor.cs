@@ -34,7 +34,7 @@ public partial class SpamProcessor : ISpamProcessor
         Log.Information("Checking for new spam");
         await spamFolder.OpenAsync(FolderAccess.ReadWrite);
 
-        var query = SearchQuery.All;
+        var query = SearchQuery.Seen;
 
         var messageIds = await spamFolder.SearchAsync(query);
 
