@@ -9,7 +9,7 @@ public partial class PuppeteerService : IPuppeteerService
     public async Task<List<string>> ProcessHtmlAndSendPostRequest(string url)
     {
         // Set up PuppeteerSharp
-        await new BrowserFetcher().DownloadAsync(BrowserFetcher.DefaultChromiumRevision);
+        await new BrowserFetcher().DownloadAsync();
         var options = new LaunchOptions
         {
             Headless = true,
@@ -22,12 +22,13 @@ public partial class PuppeteerService : IPuppeteerService
         await page.GoToAsync(url);
 
         // Find and click the "Send" button
-        var sendButton = await page.XPathAsync("//input[@type='submit' and @value='Send Spam Report(s) Now']");
+        var sendButton = await page.QuerySelectorAsync("input[type='submit'][value='Send Spam Report(s) Now']");
+
 
         // The Send button could be missing if the report has already been submitted, if the spam is too
         // old to report, or if the ISP has already indicated that they will be stopping the spam. I.e.,
         // a lack of a Send button isn't necessarily a failure.
-        if (sendButton.Length == 0)
+        if (sendButton == null)
         {
             var errorMessage = await page.QuerySelectorAsync(".error");
             if (errorMessage != null)
@@ -60,7 +61,7 @@ public partial class PuppeteerService : IPuppeteerService
         }
 
         var navigationTask = page.WaitForNavigationAsync();
-        await sendButton[0].ClickAsync();
+        await sendButton.ClickAsync();
         await navigationTask;
 
         // Check if the navigation was successful
