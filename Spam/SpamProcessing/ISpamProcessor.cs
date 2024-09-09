@@ -4,7 +4,7 @@ namespace Spam.SpamProcessing;
 
 public interface ISpamProcessor
 {
-    Task ProcessNewSpamMesssages(IMailFolder spamFolder, IMailFolder trashFolder);
+    Task ProcessNewSpamMesssages(IMailFolder spamFolder);
 
-    Task ProcessSpamCopResponses(IMailFolder inboxFolder, IMailFolder trashFolder);
+    Task ProcessSpamCopResponses(IMailFolder inboxFolder);
 }

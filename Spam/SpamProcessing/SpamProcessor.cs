@@ -29,7 +29,7 @@ public partial class SpamProcessor : ISpamProcessor
         _puppeteerService = puppeteerService;
     }
 
-    public async Task ProcessNewSpamMesssages(IMailFolder spamFolder, IMailFolder trashFolder)
+    public async Task ProcessNewSpamMesssages(IMailFolder spamFolder)
     {
         Log.Information("Checking for new spam");
         await spamFolder.OpenAsync(FolderAccess.ReadWrite);
@@ -64,8 +64,7 @@ public partial class SpamProcessor : ISpamProcessor
             messages.Add(message);
             _metricsService.IncrementSpamEmailsRecieved();
 
-            spamFolder.AddFlags(uid, MessageFlags.Seen, true);
-            spamFolder.MoveTo(uid, trashFolder);
+            spamFolder.AddFlags(uid, MessageFlags.Seen | MessageFlags.Deleted, true);
             spamCounter++;
 
             if (spamCounter >= _settings.SpamCop.MaxAttachmentsPerReport)
@@ -82,7 +81,7 @@ public partial class SpamProcessor : ISpamProcessor
         }
     }
 
-    public async Task ProcessSpamCopResponses(IMailFolder inboxFolder, IMailFolder trashFolder)
+    public async Task ProcessSpamCopResponses(IMailFolder inboxFolder)
     {
         Log.Information("Checking for SpamCop responses");
         await inboxFolder.OpenAsync(FolderAccess.ReadWrite);
@@ -131,8 +130,7 @@ public partial class SpamProcessor : ISpamProcessor
                 }
             }
 
-            inboxFolder.AddFlags(uid, MessageFlags.Seen, true);
-            inboxFolder.MoveTo(uid, trashFolder);
+            inboxFolder.AddFlags(uid, MessageFlags.Seen | MessageFlags.Deleted, true);
         }
     }
 

@@ -46,7 +46,6 @@ var commandLineArgs = serviceProvider.GetRequiredService<CommandLineArgumentsSer
 
 using (var client = imapClientFactory.CreateImapClient())
 {
-    var trashFolder = client.GetFolder(SpecialFolder.Trash);
     var inboxFolder = client.GetFolder("Inbox");
     var spamFolder = client.GetFolder(SpecialFolder.Junk);
 
@@ -54,12 +53,20 @@ using (var client = imapClientFactory.CreateImapClient())
 
     if (commandLineArgs.ProcessSpam)
     {
-        await spamProcessor.ProcessNewSpamMesssages(spamFolder, trashFolder);
+        await spamProcessor.ProcessNewSpamMesssages(spamFolder);
+        if(spamFolder.IsOpen)
+        {
+            await spamFolder.CloseAsync(true);
+        }
     }
 
     if (commandLineArgs.ProcessResponses)
     {
-        await spamProcessor.ProcessSpamCopResponses(inboxFolder, trashFolder);
+        await spamProcessor.ProcessSpamCopResponses(inboxFolder);
+        if (inboxFolder.IsOpen)
+        {
+            await inboxFolder.CloseAsync(true);
+        }
     }
 
     client.Disconnect(true);
